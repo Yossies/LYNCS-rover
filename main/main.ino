@@ -4,6 +4,7 @@
 #include <I2Cdev.h>
 #include <MPU6050_6Axis_MotionApps20.h>
 #include "./local_libs/RoverMotor.h"
+#include "./local_libs/PIDController.h"
 
 #define echoPin 13 // Echo Pin
 #define trigPin 7  // Trigger Pin
@@ -15,6 +16,7 @@ double oldr;
 double realaccel;
 
 lyncs::RoverMotor rover_motor = lyncs::RoverMotor();
+lyncs::PIDController gyro_pid = lyncs::PIDController(1,0,0);
 long int intypr[3];
 double aaxT;
 double aayT;
@@ -88,9 +90,6 @@ void dmpDataReady()
 	mpuInterrupt = true;
 }
 void cal1(double f[3][3], double g[3][3]);
-void cleenarray3(double array[], double newdata);
-double pid(double array[], const double a_m, const double proportion_gain, const double integral_gain, const double differential_gain, const double delta_T);
-double pid_a(double array[], const double a_m, const double proportion_gain);
 double TimeUpdate(); //前回この関数が呼ばれてからの時間 us単位
 void flypower(double outr, double outl);
 //MS5xxx sensor(&Wire);
@@ -136,14 +135,6 @@ void setup()
 		packetSize = mpu.dmpGetFIFOPacketSize();
 	}
 	// 加速度/ジャイロセンサーの初期化。
-	double x = 0.0000000001;
-	double y = 0.0000000001;
-	double z = 0.0000000001;
-	for (int i_r = 0; i_r < 3; i_r++)
-	{ // 重力加速度から角度を求める。
-		cleenarray3(kxa_a, x);
-		cleenarray3(kz_a, z);
-	}
 	pinMode(MISO, OUTPUT);
 	// turn on SPI in slave mode
 	SPCR |= _BV(SPE);
@@ -303,8 +294,8 @@ void loop()
 		ptyold = pty;
 	}
 
-	cleenarray3(kz_a, gyv[2]);
-	cleenarray3(kv_a, vn - v00);
+	gyro_pid.InputPID(gyv[2],0,0.01);
+	vkz += gyro_pid.GetPID();
 
 	vkz += pid(kz_a, 0, ptx, 0, 0, 0.01);
 	rover_motor.RoverPower(0.5,0);
